@@ -41,7 +41,7 @@ logs_dir_root = f"./ppo/results/tensorboard_logs/"
 seed_file_path = "./ppo/tests/seeds.txt"
 result_dir_root = f"./ppo/results/"
 max_num = 10
-max_concurrent_num = 3
+max_concurrent_num = 2
 
 def load_seeds(filepath):
     with open(filepath, "r") as f:
