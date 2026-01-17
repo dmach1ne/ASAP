@@ -157,4 +157,20 @@ alg_args = dict({
         walker = dict(
             qfs_lamT = 0.1),
     ),
+    "grad" : dict(
+        ant = dict(
+            grad_lamT = 0.1),
+        hopper = dict(
+            grad_lamT = 0.1),
+        humanoid = dict(
+            grad_lamT = 0.1),
+        lunar = dict(
+            grad_lamT = 0.001),
+        reacher = dict(
+            grad_lamT = 0.1),
+        pendulum = dict(
+            grad_lamT = 0.01),
+        walker = dict(
+            grad_lamT = 0.1),
+    ),
 })

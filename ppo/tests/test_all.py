@@ -12,7 +12,7 @@ from torch import nn
 from stable_baselines3.common.env_util import make_vec_env
 
 from modules.action_extractor import test_some_path
-from modules.controller import train_asap, train_vanilla, train_caps, train_l2c2, train_qfs
+from modules.controller import train_asap, train_vanilla, train_caps, train_l2c2, train_qfs, train_grad
 from modules.envs import make_ant_env, make_hopper_env, make_humanoid_env, make_lunar_env, make_pendulum_env, make_reacher_env, make_walker_env
 
 from modules.params import env_timestep, env_args, alg_args
@@ -32,6 +32,7 @@ alg_cnts = dict({
     "caps" : train_caps,
     "l2c2" : train_l2c2,
     "qfs" : train_qfs,
+    "grad" : train_grad,
     "asap" : train_asap,
 })
 
@@ -60,8 +61,8 @@ parser.add_argument(
 parser.add_argument(
     "--algs",
     nargs="+",
-    choices=["vanilla", "caps", "l2c2", "qfs", "asap"],
-    default=["vanilla", "caps", "l2c2", "qfs", "asap"],
+    choices=["vanilla", "caps", "l2c2", "qfs", "grad", "asap"],
+    default=["vanilla", "caps", "l2c2", "qfs", "grad", "asap"],
     help="List of environments to train on."
 )
 parser.add_argument(
