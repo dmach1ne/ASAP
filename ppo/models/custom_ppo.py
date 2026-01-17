@@ -1,6 +1,11 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from collections import deque
 import torch as th
 from stable_baselines3 import PPO
+from temporal_buffer import TemporalPPO, TemporalRolloutBuffer
 from typing import Any, ClassVar, Optional, TypeVar, Union
 from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.policies import ActorCriticCnnPolicy, ActorCriticPolicy, BasePolicy, MultiInputActorCriticPolicy
@@ -48,7 +53,7 @@ def calculate_oscillation(actions):
     action_p = actions[:-1].float()
     return th.mean(th.abs(action_n-action_p)).item()
 
-class L2C2PPO(PPO):
+class L2C2PPO(TemporalPPO):
     def __init__(
         self,
         policy: Union[str, type[ActorCriticPolicy]],
@@ -195,10 +200,10 @@ class L2C2PPO(PPO):
                 # 다음 상태를 가져옴
                 l2c2_loss = th.zeros_like(policy_loss)
 
-                observations = rollout_data.observations.clone()
-                next_observations = rollout_data.observations.clone().detach()[1:]
-                last_obs = rollout_data.observations.clone().detach()[-1].unsqueeze(0)  # 마지막 원소 추가 (배치 차원 유지)
-                next_observations = th.cat([next_observations, last_obs], dim=0)  # 마지막 원소 복사하여 추가
+                observations = rollout_data.observations
+                # TemporalRolloutBuffer의 next_observations 사용
+                next_observations = rollout_data.next_observations
+                
                 # u ~ Uniform(0, 1) 샘플링
                 sigma = self.l2c2_sigma
                 ulam = self.l2c2_lamU
@@ -447,7 +452,7 @@ class CustomPPO(PPO):
         self.logger.record("train/oscillation", np.mean(oscillations))
 
 
-class CAPSPPO(PPO):
+class CAPSPPO(TemporalPPO):
     def __init__(
         self,
         policy: Union[str, type[ActorCriticPolicy]],
@@ -592,11 +597,10 @@ class CAPSPPO(PPO):
                 weight_s = self.caps_lamS
                 caps_loss = th.zeros_like(policy_loss)
 
-                observations = rollout_data.observations.clone()
-                next_observations = rollout_data.observations.clone().detach()[1:]
-                last_obs = rollout_data.observations.clone().detach()[-1].unsqueeze(0)  # 마지막 원소 추가 (배치 차원 유지)
-                next_observations = th.cat([next_observations, last_obs], dim=0)  # 마지막 원소 복사하여 추가
-
+                observations = rollout_data.observations
+                # TemporalRolloutBuffer의 next_observations 사용
+                next_observations = rollout_data.next_observations
+                
                 s_bar = observations + th.normal(mean=0.0, std=sigma, size=observations.size()).to(observations.device)
 
                 # 정책 및 가치 함수의 출력 계산
@@ -883,7 +887,7 @@ class LipsPPO(PPO):
         self.logger.record("train/oscillation", np.mean(oscillations))
 
 
-class CAPSTPPO(PPO):
+class CAPSTPPO(TemporalPPO):
     def __init__(
         self,
         policy: Union[str, type[ActorCriticPolicy]],
@@ -1021,10 +1025,9 @@ class CAPSTPPO(PPO):
                 ### caps start
                 weight_t = self.caps_lamT
 
-                observations = rollout_data.observations.clone()
-                next_observations = rollout_data.observations.clone().detach()[1:]
-                last_obs = rollout_data.observations.clone().detach()[-1].unsqueeze(0)  # 마지막 원소 추가 (배치 차원 유지)
-                next_observations = th.cat([next_observations, last_obs], dim=0)  # 마지막 원소 복사하여 추가
+                observations = rollout_data.observations
+                # TemporalRolloutBuffer의 next_observations 사용
+                next_observations = rollout_data.next_observations
 
                 # 정책 및 가치 함수의 출력 계산
                 pi_s = self.policy._predict(observations, deterministic=True).type(th.float32)

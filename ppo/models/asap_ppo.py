@@ -1,6 +1,11 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from collections import deque
 import torch as th
 from stable_baselines3 import PPO
+from temporal_buffer import TemporalPPO, TemporalRolloutBuffer
 import traceback
 from typing import Any, ClassVar, Optional, TypeVar, Union
 from stable_baselines3.common.buffers import RolloutBuffer
@@ -452,7 +457,7 @@ class CAPST_ASAPPPO(PPO):
         # self.logger.record("train/pid_s_loss", np.mean(pid_s_losses))
 
 
-class ASAPPPO(PPO):
+class ASAPPPO(TemporalPPO):
     def __init__(
         self,
         policy: Union[str, type[ActorCriticPolicy]],
@@ -600,8 +605,9 @@ class ASAPPPO(PPO):
                     entropy_losses.append(entropy_loss.item())
 
                     ### predict next action
-                    predicted_next_action = self.policy.predict_next_action(rollout_data.observations)[:-1]
-                    next_observations = rollout_data.observations[1:]
+                    # TemporalRolloutBuffer의 next_observations 사용 (temporal consistency 보장)
+                    next_observations = rollout_data.next_observations
+                    predicted_next_action = self.policy.predict_next_action(rollout_data.observations)
                     target_next_action = self.policy._predict(next_observations, deterministic=True).detach()
 
                     # predict_loss = F.smooth_l1_loss(predicted_next_action, target_next_action, beta=0.1)
@@ -610,17 +616,13 @@ class ASAPPPO(PPO):
 
                     ### change next action simillar with predict action
                     determ_action = self.policy._predict(next_observations, deterministic=True)
-                    predicted_action =  self.policy.predict_next_action(rollout_data.observations)[:-1].detach()
+                    predicted_action = self.policy.predict_next_action(rollout_data.observations).detach()
                     smooth_loss = 0.5 * F.mse_loss(determ_action, predicted_action)
 
-                    # for t
-                    observations = rollout_data.observations.clone()
-                    next_observations = rollout_data.observations.clone().detach()[1:]
-                    last_obs = rollout_data.observations.clone().detach()[-1].unsqueeze(0)  # 마지막 원소 추가 (배치 차원 유지)
-                    next_observations = th.cat([next_observations, last_obs], dim=0)  # 마지막 원소 복사하여 추가
-                    prev_observations = rollout_data.observations.clone().detach()[:-1]
-                    first_obs = rollout_data.observations.clone().detach()[0].unsqueeze(0)
-                    prev_observations = th.cat([first_obs, prev_observations], dim=0)
+                    # for temporal smoothness loss
+                    observations = rollout_data.observations
+                    prev_observations = rollout_data.prev_observations
+                    # next_observations는 이미 위에서 가져옴
 
                     # 정책 및 가치 함수의 출력 계산
                     pi_s = self.policy._predict(observations, deterministic=True).type(th.float32)

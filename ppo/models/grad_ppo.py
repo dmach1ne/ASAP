@@ -1,6 +1,11 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from collections import deque
 import torch as th
 from stable_baselines3 import PPO
+from temporal_buffer import TemporalPPO, TemporalRolloutBuffer
 import traceback
 from typing import Any, ClassVar, Optional, TypeVar, Union
 from stable_baselines3.common.buffers import RolloutBuffer
@@ -39,7 +44,7 @@ def calculate_oscillation(actions):
     return th.mean(th.abs(action_n-action_p)).item()
 
 
-class GRADPPO(PPO):
+class GRADPPO(TemporalPPO):
     """
     QFS Implementation wrapped in GRADPPO class name.
     Uses QFS (MPR + VFC) logic.
@@ -183,8 +188,9 @@ class GRADPPO(PPO):
 
                     # 2. Vector Field Consistency (VFC) / Temporal
                     # || pi(s_t) - pi(s_{t+1}) ||^2
-                    curr_obs = rollout_data.observations[:-1]
-                    next_obs = rollout_data.observations[1:]
+                    # TemporalRolloutBuffer의 next_observations 사용 (temporal consistency 보장)
+                    curr_obs = rollout_data.observations
+                    next_obs = rollout_data.next_observations
                     
                     pi_t = self.policy._predict(curr_obs, deterministic=True)
                     pi_t1 = self.policy._predict(next_obs, deterministic=True)
