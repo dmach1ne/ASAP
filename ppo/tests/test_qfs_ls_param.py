@@ -12,7 +12,7 @@ from torch import nn
 from stable_baselines3.common.env_util import make_vec_env
 
 from modules.action_extractor import test_some_path
-from modules.controller import train_grad_cs_param
+from modules.controller import train_qfs_ls_param
 from modules.envs import make_ant_env, make_hopper_env, make_humanoid_env, make_lunar_env, make_pendulum_env, make_reacher_env, make_walker_env
 
 from modules.params import env_timestep, env_args, alg_args
@@ -28,7 +28,7 @@ train_envs_dict = dict({
 })
 
 alg_cnts = dict({
-    "grad_cs" : train_grad_cs_param
+    "qfs_ls" : train_qfs_ls_param
 })
 
 
@@ -42,17 +42,18 @@ max_concurrent_num = 5
 def load_seeds(filepath):
     with open(filepath, "r") as f:
         return [int(line.strip()) for line in f if line.strip()]
-    
-def mk_param_list_lam(lam_s_list, lam_t_list):
+
+def mk_param_list_lam(lam_d_list, lam_t_list):
     param_list = []
     pth_list=[]
     for lam_t in lam_t_list:
-        for lam_s in lam_s_list:
+        for lam_d in lam_d_list:
             param_list.append(dict(
-                grad_sigma = 0.2,
-                grad_lamS = lam_s,
-                grad_lamT = lam_t))
-            pth_list.append(f"grad_cs_ppo_lamS{lam_s}_lamT{lam_t}_")
+                qfs_sigma = 1.0,
+                qfs_lamD = lam_d,
+                qfs_lamU = lam_d*100,
+                qfs_lamT = lam_t))
+            pth_list.append(f"qfs_ls_ppo_lamD{lam_d}_lamT{lam_t}_")
     return param_list, pth_list
 
 ## 학습 시작
@@ -74,7 +75,7 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--lamt",           # 옵션 이름
+    "--lamt",          
     nargs="+",
     type=float,
     default=[0.1, 0.05],
@@ -82,15 +83,15 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--num",           # 옵션 이름
-    type=int,        # 타입은 float
-    default=10,       # 기본값
+    "--num",           
+    type=int,       
+    default=10,   
     help="test num for each parameter (int). 예: --num 3"
 )
 parser.add_argument(
-    "--cnum",           # 옵션 이름
-    type=int,        # 타입은 float
-    default=3,       # 기본값
+    "--cnum",      
+    type=int,       
+    default=3,    
     help="test num for each parameter (int). 예: --num 3"
 )
 args = parser.parse_args()
@@ -98,7 +99,7 @@ print(f"Selected envs: {args.envs}")
 print(f"Selected max_num: {args.num}")
 
 # 테스트할 컨트롤러 목록
-train_algs = ["grad_cs"]
+train_algs = ["qfs_ls"]
 # 테스트할 env 목록
 train_envs = args.envs #["ant", "hopper", "humanoid", "lunar", "pendulum", "reacher"]
 test_params, pth_list = mk_param_list_lam(args.lams, args.lamt)
@@ -123,6 +124,7 @@ for env_name in train_envs:
         os.makedirs(save_dir)
         time.sleep(2)
 
+    
     for num in range(max_num):
         seed = seeds[num]
         for alg_name in train_algs:
@@ -143,5 +145,5 @@ with ProcessPoolExecutor(max_workers=max_concurrent_num) as executor:
         else:
             print(f"Job {job_func} completed successfully.")
 
-subpath = f"grad_cs_{args.envs[0]}_lamt{args.lamt[0]}/"
+subpath = f"qfs_ls_{args.envs[0]}_lamt{args.lamt[0]}/"
 test_some_path(save_dir_root, True, pth_list, subpath)

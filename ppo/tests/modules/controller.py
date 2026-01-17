@@ -9,7 +9,7 @@ from typing import Callable, Optional
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from models.custom_ppo import CustomPPO, L2C2PPO, CAPSPPO, LipsPPO, CAPSTPPO
 from models.custom_policy import LipsPolicy
-from models.grad_ppo import GRADPPO, GRAD_CS_PPO, GRAD_LS_PPO
+from models.qfs_ppo import QFSPPO, QFS_CS_PPO, QFS_LS_PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from models.asap_only_s_ppo import ASAP_ONLY_S_PPO, ASAPPolicy_share
 from models.asap_ppo import ASAPPPO, CAPST_ASAPPPO, ASAPPPO_lam_undetach
@@ -117,7 +117,7 @@ def train_asap_only_s_share_param(seed: int, total_time_steps: int, save_dir: st
     vec_env.close()
     del model
 
-def train_grad(seed:int, total_time_steps:int, save_dir:str, log_dir:str, mkenv_func : Callable, env_args:dict, alg_args:dict):
+def train_qfs(seed:int, total_time_steps:int, save_dir:str, log_dir:str, mkenv_func : Callable, env_args:dict, alg_args:dict):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     n_envs = 1  # 원하는 env 개수
@@ -127,14 +127,14 @@ def train_grad(seed:int, total_time_steps:int, save_dir:str, log_dir:str, mkenv_
     vec_env = VecMonitor(vec_env)
     ppo_args = {k: v for k, v in env_args.items() if k != "n_envs"}
     ppo_args.update(alg_args)
-    model = GRADPPO("MlpPolicy", vec_env, verbose=0, tensorboard_log=log_dir,
+    model = QFSPPO("MlpPolicy", vec_env, verbose=0, tensorboard_log=log_dir,
                     seed=seed, **ppo_args)
-    model.learn(total_timesteps=total_time_steps, tb_log_name=f"GRAD_PPO_{seed}")
-    model.save(f"{save_dir}grad_ppo_{seed}")
+    model.learn(total_timesteps=total_time_steps, tb_log_name=f"QFS_PPO_{seed}")
+    model.save(f"{save_dir}qfs_ppo_{seed}")
     vec_env.close()
     del model
 
-def train_grad_param(seed:int, total_time_steps:int, save_dir:str, log_dir:str, mkenv_func : Callable, env_args:dict, alg_args:dict):
+def train_qfs_param(seed:int, total_time_steps:int, save_dir:str, log_dir:str, mkenv_func : Callable, env_args:dict, alg_args:dict):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     n_envs = 1  # 원하는 env 개수
@@ -144,10 +144,10 @@ def train_grad_param(seed:int, total_time_steps:int, save_dir:str, log_dir:str, 
     vec_env = VecMonitor(vec_env)
     ppo_args = {k: v for k, v in env_args.items() if k != "n_envs"}
     ppo_args.update(alg_args)
-    model = GRADPPO("MlpPolicy", vec_env, verbose=0, tensorboard_log=log_dir,
+    model = QFSPPO("MlpPolicy", vec_env, verbose=0, tensorboard_log=log_dir,
                     seed=seed, **ppo_args)
-    model.learn(total_timesteps=total_time_steps, tb_log_name=f"GRAD_PPO_lamT{alg_args['grad_lamT']}_{seed}")
-    model.save(f"{save_dir}grad_ppo_lamT{alg_args['grad_lamT']}_{seed}")
+    model.learn(total_timesteps=total_time_steps, tb_log_name=f"QFS_PPO_lamT{alg_args['qfs_lamT']}_{seed}")
+    model.save(f"{save_dir}qfs_ppo_lamT{alg_args['qfs_lamT']}_{seed}")
     vec_env.close()
     del model
 
@@ -225,8 +225,7 @@ def train_asap_param(seed: int, total_time_steps: int, save_dir: str, log_dir: s
     del model
 
 
-def train_grad_cs_param(seed: int, total_time_steps: int, save_dir: str, log_dir: str, mkenv_func: Callable,
-              env_args:dict, alg_args:dict):
+def train_qfs_cs_param(seed:int, total_time_steps:int, save_dir:str, log_dir:str, mkenv_func : Callable, env_args:dict, alg_args:dict):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     n_envs = 1  # 원하는 env 개수
@@ -236,15 +235,14 @@ def train_grad_cs_param(seed: int, total_time_steps: int, save_dir: str, log_dir
     vec_env = VecMonitor(vec_env)
     ppo_args = {k: v for k, v in env_args.items() if k != "n_envs"}
     ppo_args.update(alg_args)
-    model =GRAD_CS_PPO("MlpPolicy", vec_env, verbose=0, tensorboard_log=log_dir, 
+    model =QFS_CS_PPO("MlpPolicy", vec_env, verbose=0, tensorboard_log=log_dir, 
                     seed=seed, **ppo_args)
-    model.learn(total_timesteps=total_time_steps, tb_log_name=f"GRAD_CS_PPO_lamS{alg_args['grad_lamS']}_lamT{alg_args['grad_lamT']}_{seed}")
-    model.save(f"{save_dir}grad_cs_ppo_lamS{alg_args['grad_lamS']}_lamT{alg_args['grad_lamT']}_{seed}")
+    model.learn(total_timesteps=total_time_steps, tb_log_name=f"QFS_CS_PPO_lamS{alg_args['qfs_lamS']}_lamT{alg_args['qfs_lamT']}_{seed}")
+    model.save(f"{save_dir}qfs_cs_ppo_lamS{alg_args['qfs_lamS']}_lamT{alg_args['qfs_lamT']}_{seed}")
     vec_env.close()
     del model
 
-def train_grad_ls_param(seed: int, total_time_steps: int, save_dir: str, log_dir: str, mkenv_func: Callable,
-              env_args:dict, alg_args:dict):
+def train_qfs_ls_param(seed:int, total_time_steps:int, save_dir:str, log_dir:str, mkenv_func : Callable, env_args:dict, alg_args:dict):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     n_envs = 1  # 원하는 env 개수
@@ -254,10 +252,10 @@ def train_grad_ls_param(seed: int, total_time_steps: int, save_dir: str, log_dir
     vec_env = VecMonitor(vec_env)
     ppo_args = {k: v for k, v in env_args.items() if k != "n_envs"}
     ppo_args.update(alg_args)
-    model =GRAD_LS_PPO("MlpPolicy", vec_env, verbose=0, tensorboard_log=log_dir, 
+    model =QFS_LS_PPO("MlpPolicy", vec_env, verbose=0, tensorboard_log=log_dir, 
                     seed=seed, **ppo_args)
-    model.learn(total_timesteps=total_time_steps, tb_log_name=f"GRAD_LS_PPO_lamD{alg_args['grad_lamD']}_lamT{alg_args['grad_lamT']}_{seed}")
-    model.save(f"{save_dir}grad_ls_ppo_lamD{alg_args['grad_lamD']}_lamT{alg_args['grad_lamT']}_{seed}")
+    model.learn(total_timesteps=total_time_steps, tb_log_name=f"QFS_LS_PPO_lamD{alg_args['qfs_lamD']}_lamT{alg_args['qfs_lamT']}_{seed}")
+    model.save(f"{save_dir}qfs_ls_ppo_lamD{alg_args['qfs_lamD']}_lamT{alg_args['qfs_lamT']}_{seed}")
     vec_env.close()
     del model
 

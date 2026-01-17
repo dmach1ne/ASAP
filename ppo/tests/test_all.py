@@ -12,7 +12,7 @@ from torch import nn
 from stable_baselines3.common.env_util import make_vec_env
 
 from modules.action_extractor import test_some_path
-from modules.controller import train_asap, train_vanilla, train_caps, train_l2c2, train_grad
+from modules.controller import train_asap, train_vanilla, train_caps, train_l2c2, train_qfs
 from modules.envs import make_ant_env, make_hopper_env, make_humanoid_env, make_lunar_env, make_pendulum_env, make_reacher_env, make_walker_env
 
 from modules.params import env_timestep, env_args, alg_args
@@ -31,7 +31,7 @@ alg_cnts = dict({
     "vanilla": train_vanilla,
     "caps" : train_caps,
     "l2c2" : train_l2c2,
-    "grad" : train_grad,
+    "qfs" : train_qfs,
     "asap" : train_asap,
 })
 
@@ -60,8 +60,8 @@ parser.add_argument(
 parser.add_argument(
     "--algs",
     nargs="+",
-    choices=["vanilla", "caps", "l2c2", "grad", "asap"],
-    default=["vanilla", "caps", "l2c2", "grad", "asap"],
+    choices=["vanilla", "caps", "l2c2", "qfs", "asap"],
+    default=["vanilla", "caps", "l2c2", "qfs", "asap"],
     help="List of environments to train on."
 )
 parser.add_argument(
@@ -125,5 +125,5 @@ with ProcessPoolExecutor(max_workers=max_concurrent_num) as executor:
         # Make sure to clean up at the end
         print("Cleaning up processes...")
         executor.shutdown(wait=False)
-pth_names = ["vanilla", "caps_ppo", "l2c2_ppo", "grad_ppo", "asap_ppo"]
+pth_names = ["vanilla", "caps_ppo", "l2c2_ppo", "qfs_ppo", "asap_ppo"]
 test_some_path(save_dir_root, True, pth_names, "test_all")

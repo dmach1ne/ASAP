@@ -44,9 +44,9 @@ def calculate_oscillation(actions):
     return th.mean(th.abs(action_n-action_p)).item()
 
 
-class GRADPPO(TemporalPPO):
+class QFSPPO(TemporalPPO):
     """
-    QFS Implementation wrapped in GRADPPO class name.
+    QFS Implementation wrapped in QFSPPO class name.
     Uses QFS (MPR + VFC) logic.
     """
     def __init__(
@@ -77,10 +77,10 @@ class GRADPPO(TemporalPPO):
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
-        grad_lamT = 0.1, # Mapped to VFC Weight (Temporal)
-        # Hidden QFS params for basic GRADPPO class
-        grad_lamS = 0.1, # Mapped to MPR Weight (Spatial)
-        grad_sigma = 0.01 # Mapped to MPR Noise
+        qfs_lamT = 0.1, # Mapped to VFC Weight (Temporal)
+        # Hidden QFS params for basic QFSPPO class
+        qfs_lamS = 0.1, # Mapped to MPR Weight (Spatial)
+        qfs_sigma = 0.01 # Mapped to MPR Noise
     ):
         super().__init__(
             policy,
@@ -111,9 +111,9 @@ class GRADPPO(TemporalPPO):
             _init_setup_model=_init_setup_model,
         )
         # Map parameters to QFS concepts
-        self.lam_vfc = grad_lamT
-        self.lam_mpr = grad_lamS
-        self.sigma_s = grad_sigma
+        self.lam_vfc = qfs_lamT
+        self.lam_mpr = qfs_lamS
+        self.sigma_s = qfs_sigma
 
     def train(self) -> None:
         self._train_qfs()
@@ -260,9 +260,9 @@ class GRADPPO(TemporalPPO):
         self.logger.record("train/vfc_loss", np.mean(vfc_losses))
 
 
-class GRAD_CS_PPO(GRADPPO):
+class QFS_CS_PPO(QFSPPO):
     """
-    QFS Implementation wrapped in GRAD_CS_PPO class name.
+    QFS Implementation wrapped in QFS_CS_PPO class name.
     Explicitly exposes spatial (MPR) and temporal (VFC) weights.
     """
     def __init__(
@@ -293,9 +293,9 @@ class GRAD_CS_PPO(GRADPPO):
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
-        grad_lamT = 0.1,  # VFC Weight
-        grad_lamS = 0.1,  # MPR Weight
-        grad_sigma = 0.01 # MPR Noise (Using QFS recommended scale)
+        qfs_lamT = 0.1,  # VFC Weight
+        qfs_lamS = 0.1,  # MPR Weight
+        qfs_sigma = 0.01 # MPR Noise (Using QFS recommended scale)
     ):
         super().__init__(
             policy,
@@ -305,14 +305,14 @@ class GRAD_CS_PPO(GRADPPO):
             max_grad_norm, use_sde, sde_sample_freq, rollout_buffer_class,
             rollout_buffer_kwargs, target_kl, stats_window_size, tensorboard_log,
             policy_kwargs, verbose, seed, device, _init_setup_model,
-            grad_lamT, grad_lamS, grad_sigma
+            qfs_lamT, qfs_lamS, qfs_sigma
         )
 
 
-class GRAD_LS_PPO(GRADPPO):
+class QFS_LS_PPO(QFSPPO):
     """
-    QFS Implementation wrapped in GRAD_LS_PPO class name.
-    Ignores L2C2 specific parameters (grad_lamD, grad_lamU) and uses QFS logic.
+    QFS Implementation wrapped in QFS_LS_PPO class name.
+    Ignores L2C2 specific parameters (qfs_lamD, qfs_lamU) and uses QFS logic.
     """
     def __init__(
         self,
@@ -342,14 +342,14 @@ class GRAD_LS_PPO(GRADPPO):
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
-        grad_lamT = 0.1,    # VFC Weight
-        grad_sigma = 0.01,  # MPR Noise
-        grad_lamD = 0.01,   # Ignored in QFS
-        grad_lamU = 1.0,    # Ignored in QFS
+        qfs_lamT = 0.1,    # VFC Weight
+        qfs_sigma = 0.01,  # MPR Noise
+        qfs_lamD = 0.01,   # Ignored in QFS
+        qfs_lamU = 1.0,    # Ignored in QFS
     ):
         # We assume a default Spatial weight (MPR) for LS_PPO context if not provided, 
         # but since this class is replacing LS, we'll set a reasonable default for QFS.
-        grad_lamS = 0.1 
+        qfs_lamS = 0.1 
         
         super().__init__(
             policy,
@@ -359,8 +359,8 @@ class GRAD_LS_PPO(GRADPPO):
             max_grad_norm, use_sde, sde_sample_freq, rollout_buffer_class,
             rollout_buffer_kwargs, target_kl, stats_window_size, tensorboard_log,
             policy_kwargs, verbose, seed, device, _init_setup_model,
-            grad_lamT, grad_lamS, grad_sigma
+            qfs_lamT, qfs_lamS, qfs_sigma
         )
         # Keep these just in case they are accessed externally, though unused in QFS logic
-        self.grad_lamD = grad_lamD
-        self.grad_lamU = grad_lamU
+        self.qfs_lamD = qfs_lamD
+        self.qfs_lamU = qfs_lamU
