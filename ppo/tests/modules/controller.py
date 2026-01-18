@@ -312,6 +312,26 @@ def train_qfs_ls_param(seed:int, total_time_steps:int, save_dir:str, log_dir:str
     vec_env.close()
     del model
 
+def train_qfs_sweep(seed:int, total_time_steps:int, save_dir:str, log_dir:str, mkenv_func : Callable, env_args:dict, alg_args:dict):
+    """QFS 하이퍼파라미터 sweep용 학습 함수 (qfs_lamT, qfs_lamS, qfs_sigma)"""
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    n_envs = 1
+    if 'n_envs' in env_args:
+        n_envs = env_args['n_envs']
+    vec_env = DummyVecEnv([mkenv_func() for _ in range(n_envs)])
+    vec_env = VecMonitor(vec_env)
+    ppo_args = {k: v for k, v in env_args.items() if k != "n_envs"}
+    ppo_args.update(alg_args)
+    model = QFSPPO("MlpPolicy", vec_env, verbose=0, tensorboard_log=log_dir,
+                    seed=seed, **ppo_args)
+    log_name = f"QFS_PPO_lamT{alg_args['qfs_lamT']}_lamS{alg_args['qfs_lamS']}_sigma{alg_args['qfs_sigma']}_{seed}"
+    save_name = f"qfs_ppo_lamT{alg_args['qfs_lamT']}_lamS{alg_args['qfs_lamS']}_sigma{alg_args['qfs_sigma']}_{seed}"
+    model.learn(total_timesteps=total_time_steps, tb_log_name=log_name)
+    model.save(f"{save_dir}{save_name}")
+    vec_env.close()
+    del model
+
 def train_grad_ls_param(seed: int, total_time_steps: int, save_dir: str, log_dir: str, mkenv_func: Callable,
               env_args:dict, alg_args:dict):
     if not os.path.exists(save_dir):

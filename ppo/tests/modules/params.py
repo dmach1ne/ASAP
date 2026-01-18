@@ -143,19 +143,33 @@ alg_args = dict({
     ),
     "qfs" : dict(
         ant = dict(
-            qfs_lamT = 0.1),
+            qfs_lamT = 0.1,
+            qfs_lamS = 0.1,
+            qfs_sigma = 0.01),
         hopper = dict(
-            qfs_lamT = 0.1),
+            qfs_lamT = 0.1,
+            qfs_lamS = 0.1,
+            qfs_sigma = 0.01),
         humanoid = dict(
-            qfs_lamT = 0.1),
+            qfs_lamT = 0.1,
+            qfs_lamS = 0.1,
+            qfs_sigma = 0.01),
         lunar = dict(
-            qfs_lamT = 0.001),
+            qfs_lamT = 0.1,
+            qfs_lamS = 0.1,
+            qfs_sigma = 0.01),
         reacher = dict(
-            qfs_lamT = 0.1),
+            qfs_lamT = 0.1,
+            qfs_lamS = 0.1,
+            qfs_sigma = 0.01),
         pendulum = dict(
-            qfs_lamT = 0.01),
+            qfs_lamT = 0.01,
+            qfs_lamS = 0.01,
+            qfs_sigma = 0.01),
         walker = dict(
-            qfs_lamT = 0.1),
+            qfs_lamT = 0.1,
+            qfs_lamS = 0.1,
+            qfs_sigma = 0.01),
     ),
     "grad" : dict(
         ant = dict(

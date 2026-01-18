@@ -78,7 +78,6 @@ class QFSPPO(TemporalPPO):
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
         qfs_lamT = 0.1, # Mapped to VFC Weight (Temporal)
-        # Hidden QFS params for basic QFSPPO class
         qfs_lamS = 0.1, # Mapped to MPR Weight (Spatial)
         qfs_sigma = 0.01 # Mapped to MPR Noise
     ):
