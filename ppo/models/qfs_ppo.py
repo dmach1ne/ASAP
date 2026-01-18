@@ -175,7 +175,11 @@ class QFSPPO(TemporalPPO):
                     # --- QFS Implementation ---
                     
                     # 1. Mixed-Partial Regularization (MPR) / Spatial
-                    # || pi(s) - pi(s + noise) ||^2
+                    # -------------------------------------------------------
+                    # [논문 수식] L_MPR = E_{(s,a)~D, ε} [ ||∇_a Q_θ(s+ε) - ∇_a Q_θ(s)||_2^2 ]
+                    #            where ε ~ N(0, σ_s^2 I)
+                    # [현재 구현] L_MPR = E [ ||π(s+ε) - π(s)||_2^2 ]
+                    # -------------------------------------------------------
                     noise = th.normal(0, self.sigma_s, size=rollout_data.observations.shape, device=self.device)
                     observations_noisy = rollout_data.observations + noise
                     
@@ -186,7 +190,10 @@ class QFSPPO(TemporalPPO):
                     mpr_losses.append(mpr_loss.item())
 
                     # 2. Vector Field Consistency (VFC) / Temporal
-                    # || pi(s_t) - pi(s_{t+1}) ||^2
+                    # -------------------------------------------------------
+                    # [논문 수식] L_VFC = E_{(s_t,a_t,s_{t+1})~D} [ ||∇_a Q_θ(s_t,a_t) - ∇_a Q_θ(s_{t+1},a_t)||_2^2 ]
+                    # [현재 구현] L_VFC = E [ ||π(s_t) - π(s_{t+1})||_2^2 ]
+                    # -------------------------------------------------------
                     # TemporalRolloutBuffer의 next_observations 사용 (temporal consistency 보장)
                     curr_obs = rollout_data.observations
                     next_obs = rollout_data.next_observations
