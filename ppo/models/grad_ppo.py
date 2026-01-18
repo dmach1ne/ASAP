@@ -1,6 +1,11 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from collections import deque
 import torch as th
 from stable_baselines3 import PPO
+from temporal_buffer import TemporalPPO, TemporalRolloutBuffer
 from typing import Any, ClassVar, Optional, TypeVar, Union
 from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.policies import ActorCriticCnnPolicy, ActorCriticPolicy, BasePolicy, MultiInputActorCriticPolicy
@@ -50,7 +55,7 @@ def calculate_oscillation(actions):
 
 
 
-class GRADPPO(PPO):
+class GRADPPO(TemporalPPO):
     def __init__(
         self,
         policy: Union[str, type[ActorCriticPolicy]],
@@ -185,25 +190,24 @@ class GRADPPO(PPO):
 
                 entropy_losses.append(entropy_loss.item())
 
-                ### caps start
+                ### grad temporal smoothness start
                 weight_t = self.grad_lamT
 
-                observations = rollout_data.observations.clone()
-                next_observations = rollout_data.observations.clone().detach()[1:]
-                last_obs = rollout_data.observations.clone().detach()[-1].unsqueeze(0)  # 마지막 원소 추가 (배치 차원 유지)
-                next_observations = th.cat([next_observations, last_obs], dim=0)  # 마지막 원소 복사하여 추가
-                prev_observations = rollout_data.observations.clone().detach()[:-1]
-                first_obs = rollout_data.observations.clone().detach()[0].unsqueeze(0)
-                prev_observations = th.cat([first_obs, prev_observations], dim=0)
+                # TemporalRolloutBuffer에서 제공하는 prev/next_observations 사용 (temporal consistency 보장)
+                observations = rollout_data.observations
+                prev_observations = rollout_data.prev_observations.detach()
+                next_observations = rollout_data.next_observations.detach()
 
-                # 정책 및 가치 함수의 출력 계산
+                # 정책의 출력 계산
                 pi_s = self.policy._predict(observations, deterministic=True).type(th.float32)
                 pi_s_next = self.policy._predict(next_observations, deterministic=True).type(th.float32)
                 pi_s_prev = self.policy._predict(prev_observations, deterministic=True).type(th.float32)
 
-                # 거리 계산 (여기서는 L2 거리 사용)
+                # 2차 미분 기반 smoothness loss (curvature penalty)
+                # derv_t ≈ |π''(s)|² = |π(s+1) - 2π(s) + π(s-1)|²
                 derv_t = 0.5 * ((2*pi_s - pi_s_next - pi_s_prev)**2)
 
+                # hdelta: action 변화가 작을 때 더 큰 penalty 부여
                 delta = pi_s_next - pi_s_prev + 1e-4
                 hdelta = F.tanh((1/delta)**2).detach()
 
@@ -271,7 +275,7 @@ class GRADPPO(PPO):
 
 
 #Grad + CAPS_Spatial
-class GRAD_CS_PPO(PPO):
+class GRAD_CS_PPO(TemporalPPO):
     def __init__(
         self,
         policy: Union[str, type[ActorCriticPolicy]],
@@ -410,32 +414,30 @@ class GRAD_CS_PPO(PPO):
 
                 entropy_losses.append(entropy_loss.item())
 
-                ### caps start
+                ### grad temporal + spatial smoothness start
                 weight_t = self.grad_lamT
                 weight_s = self.grad_lamS
 
-                observations = rollout_data.observations.clone()
-                next_observations = rollout_data.observations.clone().detach()[1:]
-                last_obs = rollout_data.observations.clone().detach()[-1].unsqueeze(0)  # 마지막 원소 추가 (배치 차원 유지)
-                next_observations = th.cat([next_observations, last_obs], dim=0)  # 마지막 원소 복사하여 추가
-                prev_observations = rollout_data.observations.clone().detach()[:-1]
-                first_obs = rollout_data.observations.clone().detach()[0].unsqueeze(0)
-                prev_observations = th.cat([first_obs, prev_observations], dim=0)
+                # TemporalRolloutBuffer에서 제공하는 prev/next_observations 사용 (temporal consistency 보장)
+                observations = rollout_data.observations
+                prev_observations = rollout_data.prev_observations.detach()
+                next_observations = rollout_data.next_observations.detach()
 
-                # 정책 및 가치 함수의 출력 계산
+                # 정책의 출력 계산
                 pi_s = self.policy._predict(observations, deterministic=True).type(th.float32)
                 pi_s_next = self.policy._predict(next_observations, deterministic=True).type(th.float32)
                 pi_s_prev = self.policy._predict(prev_observations, deterministic=True).type(th.float32)
 
-                # 거리 계산 (여기서는 L2 거리 사용)
+                # 2차 미분 기반 smoothness loss (curvature penalty)
                 derv_t = 0.5 * ((2*pi_s - pi_s_next - pi_s_prev)**2)
 
+                # hdelta: action 변화가 작을 때 더 큰 penalty 부여
                 delta = pi_s_next - pi_s_prev + 1e-4
                 hdelta = F.tanh((1/delta)**2).detach()
 
                 loss_t = th.mean(derv_t*hdelta)
 
-                # spatial
+                # spatial smoothness (CAPS-style)
                 s_bar = observations + th.normal(mean=0.0, std=self.grad_sigma, size=observations.size()).to(observations.device)
                 pi_s_bar = self.policy._predict(s_bar, deterministic=True).type(th.float32)
 
@@ -503,7 +505,7 @@ class GRAD_CS_PPO(PPO):
 
 
 #Grad + grad_Spatial
-class GRAD_LS_PPO(PPO):
+class GRAD_LS_PPO(TemporalPPO):
     def __init__(
         self,
         policy: Union[str, type[ActorCriticPolicy]],
@@ -644,43 +646,37 @@ class GRAD_LS_PPO(PPO):
 
                 entropy_losses.append(entropy_loss.item())
 
-                ### caps start
+                ### grad temporal + L2C2-style spatial smoothness start
                 weight_t = self.grad_lamT
 
-                observations = rollout_data.observations.clone()
-                next_observations = rollout_data.observations.clone().detach()[1:]
-                last_obs = rollout_data.observations.clone().detach()[-1].unsqueeze(0)  # 마지막 원소 추가 (배치 차원 유지)
-                next_observations = th.cat([next_observations, last_obs], dim=0)  # 마지막 원소 복사하여 추가
-                prev_observations = rollout_data.observations.clone().detach()[:-1]
-                first_obs = rollout_data.observations.clone().detach()[0].unsqueeze(0)
-                prev_observations = th.cat([first_obs, prev_observations], dim=0)
+                # TemporalRolloutBuffer에서 제공하는 prev/next_observations 사용 (temporal consistency 보장)
+                observations = rollout_data.observations
+                prev_observations = rollout_data.prev_observations.detach()
+                next_observations = rollout_data.next_observations.detach()
 
-                # 정책 및 가치 함수의 출력 계산
+                # 정책의 출력 계산
                 pi_s = self.policy._predict(observations, deterministic=True).type(th.float32)
                 pi_s_next = self.policy._predict(next_observations, deterministic=True).type(th.float32)
                 pi_s_prev = self.policy._predict(prev_observations, deterministic=True).type(th.float32)
 
-                # 거리 계산 (여기서는 L2 거리 사용)
+                # 2차 미분 기반 smoothness loss (curvature penalty)
                 derv_t = 0.5 * ((2*pi_s - pi_s_next - pi_s_prev)**2)
 
+                # hdelta: action 변화가 작을 때 더 큰 penalty 부여
                 delta = pi_s_next - pi_s_prev + 1e-4
                 hdelta = F.tanh((1/delta)**2).detach()
 
                 loss_t = th.mean(derv_t*hdelta)
 
-                # spatial
-                observations = rollout_data.observations.clone()
-                next_observations = rollout_data.observations.clone().detach()[1:]
-                last_obs = rollout_data.observations.clone().detach()[-1].unsqueeze(0)  # 마지막 원소 추가 (배치 차원 유지)
-                next_observations = th.cat([next_observations, last_obs], dim=0)  # 마지막 원소 복사하여 추가
-                # u ~ Uniform(0, 1) 샘플링
+                # L2C2-style spatial smoothness
+                # u ~ Uniform(-width, width) 샘플링하여 s_bar 계산
                 sigma = self.grad_sigma
                 ulam = self.grad_lamU
                 dlam = self.grad_lamD
                 epsilon = sigma * dlam / (ulam - sigma * dlam)
                 width = sigma + (sigma - 1) * epsilon
                 u = th.rand_like(observations) * 2 * width - width
-                # s_bar 계산
+                # s_bar 계산: s와 s_next 사이의 보간
                 s_bar = observations + (next_observations - observations) * u
 
                 # dus 계산
