@@ -214,7 +214,7 @@ class GRADPPO(TemporalPPO):
                 loss_t = th.mean(derv_t*hdelta)
 
 
-                ### caps end
+                ### grad end
 
                 ### smoothness start
                 osc = calculate_oscillation(actions)
@@ -428,16 +428,15 @@ class GRAD_CS_PPO(TemporalPPO):
                 pi_s_next = self.policy._predict(next_observations, deterministic=True).type(th.float32)
                 pi_s_prev = self.policy._predict(prev_observations, deterministic=True).type(th.float32)
 
-                # 2차 미분 기반 smoothness loss (curvature penalty)
+                # 거리 계산 (여기서는 L2 거리 사용)
                 derv_t = 0.5 * ((2*pi_s - pi_s_next - pi_s_prev)**2)
 
-                # hdelta: action 변화가 작을 때 더 큰 penalty 부여
                 delta = pi_s_next - pi_s_prev + 1e-4
                 hdelta = F.tanh((1/delta)**2).detach()
 
                 loss_t = th.mean(derv_t*hdelta)
 
-                # spatial smoothness (CAPS-style)
+                # spatial
                 s_bar = observations + th.normal(mean=0.0, std=self.grad_sigma, size=observations.size()).to(observations.device)
                 pi_s_bar = self.policy._predict(s_bar, deterministic=True).type(th.float32)
 
